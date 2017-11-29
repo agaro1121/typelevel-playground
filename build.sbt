@@ -21,3 +21,6 @@ libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-circe" % http4sVersion,
   "io.circe" %% "circe-generic" % "0.9.0-M2"
 ).map(d => d exclude("org.typelevel", "cats-core"))
+
+libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25"
+
