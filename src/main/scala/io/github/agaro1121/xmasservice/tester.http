@@ -1,0 +1,32 @@
+### Get User by first name
+GET {{host}}/users/firstname/anthony
+
+### Get User by last name
+GET {{host}}/users/lastname/garo
+
+###
+GET {{host}}/users/id/someid
+
+###
+GET {{host}}/users/birthday/1988Nov21
+
+###
+GET {{host}}/users
+
+###
+
+
+### Create User
+POST {{host}}/user
+Content-Type: application/javascript
+
+{
+    "id": "someid",
+    "firstName": "anthony",
+    "lastName": "garo",
+    "birthday": "1988Nov21",
+    "ts": "someTimestamp"
+
+}
+
+###
