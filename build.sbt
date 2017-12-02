@@ -25,4 +25,4 @@ libraryDependencies ++= Seq(
 ).map(d => d exclude("org.typelevel", "cats-core"))
 
 libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25"
-
+libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.4" % "test"

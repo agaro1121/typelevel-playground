@@ -22,7 +22,6 @@ trait UserService[F[_]] extends Http4sDsl[F] {
   def userRoutes(implicit GG: Monad[F], eff: Effect[F]) = HttpService[F] {
 
     case req @ POST -> Root / "user" => {
-//      implicit val decoder = jsonOf[F, User]
       req.as[User].flatMap { user =>
           userRepo.addUser(user).flatMap {
             case Success => Ok()
@@ -32,7 +31,6 @@ trait UserService[F[_]] extends Http4sDsl[F] {
     }
 
     case GET -> Root / "users" / "firstname" / firstName => {
-      println(s"looking for $firstName")
       userRepo
         .getUserByFirstName(firstName)
         .flatMap {
