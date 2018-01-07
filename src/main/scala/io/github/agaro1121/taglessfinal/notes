@@ -1,0 +1,18 @@
+ def updateUser(user: User): F[Either[DatabaseError, Boolean]] = {
+//    EitherT(getUser(user.id)).flatMap(user => EitherT.liftF[F, DatabaseError, Boolean](addUser(user.copy(name = "Bobby")))).value
+    (for {
+      userFromDB <- EitherT(getUser(user.id))
+      _ = C.putLine(s"We found user($userFromDB)!!")
+      successfullyAdded <- EitherT.liftF[F, DatabaseError, Boolean](addUser(user))
+    } yield successfullyAdded).value
+  }
+
+  // https://gitter.im/typelevel/cats?at=5a4ba46aba39a53f1ac980d6
+  /*def updateUser(user: User): EitherT[F, DatabaseError, F[Boolean]] = for {
+    dbErrorOrUser <- EitherT.liftF(getUser(user.id))
+    user <- EitherT.fromEither(dbErrorOrUser)
+    createdSuccessfully <- EitherT.pure(create(user.copy(name = "Bobby")))
+  } yield createdSuccessfully*/
+  //**********This is the same as above
+//  def updateUser(user: User): EitherT[F, DatabaseError, F[Boolean]] =
+//    EitherT(DB.read(user.id)).map(user => DB.create(user.copy(name = "Bobby")))

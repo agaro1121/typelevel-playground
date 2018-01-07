@@ -11,8 +11,9 @@ scalacOptions ++= Seq(
 )
 
 
-libraryDependencies += "org.typelevel" %% "cats-core" % "1.0.0-RC1"
-libraryDependencies += "org.typelevel" %% "cats-macros" % "1.0.0-RC1"
+libraryDependencies += "org.typelevel" %% "cats-core" % "1.0.1"
+libraryDependencies += "org.typelevel" %% "cats-free" % "1.0.1"
+libraryDependencies += "org.typelevel" %% "cats-macros" % "1.0.1"
 val http4sVersion = "0.18.0-M5"
 libraryDependencies ++= Seq(
   "org.http4s" %% "http4s-dsl" % http4sVersion,
