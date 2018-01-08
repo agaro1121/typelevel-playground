@@ -29,24 +29,25 @@ trait DatabaseAlgebra[F[_], T] {
 
 object DatabaseAlgebra {
 
-  implicit object FutureInterpreter extends DatabaseAlgebra[Future, User] {
-    val users: mutable.Map[Long, User] = mutable.Map.empty
+  val FutureInterpreter: DatabaseAlgebra[Future, User] =
+    new DatabaseAlgebra[Future, User] {
+      val users: mutable.Map[Long, User] = mutable.Map.empty
 
-    override def create(user: User): Future[Boolean] = {
-      val inserted = users.put(user.id, user)
-      Future.successful(inserted.isEmpty || inserted.isDefined)
+      override def create(user: User): Future[Boolean] = {
+        val inserted = users.put(user.id, user)
+        Future.successful(inserted.isEmpty || inserted.isDefined)
+      }
+
+      override def read(id: Long): Future[Either[DatabaseError, User]] =
+        Future.successful(users.get(id).toRight(ErrorFindingUser))
+
+      override def delete(id: Long): Future[Either[DatabaseError, Unit]] = {
+        import cats.syntax.either._
+        val deleted = users.remove(id)
+        Future.successful(
+          deleted.fold(ErrorDeletingUser(s"User with Id($id) was not there").asLeft[Unit])(_ => Right(())))
+      }
     }
-
-    override def read(id: Long): Future[Either[DatabaseError, User]] =
-      Future.successful(users.get(id).toRight(ErrorFindingUser))
-
-    override def delete(id: Long): Future[Either[DatabaseError, Unit]] = {
-      import cats.syntax.either._
-      val deleted = users.remove(id)
-      Future.successful(
-        deleted.fold(ErrorDeletingUser(s"User with Id($id) was not there").asLeft[Unit])(_ => Right(())))
-    }
-  }
 
 }
 
@@ -61,7 +62,7 @@ class UserRepo[F[_]](DB: DatabaseAlgebra[F, User],
   def updateUser(user: User): F[Either[DatabaseError, Boolean]] = {
     (for {
       userFromDB <- EitherT(getUser(user.id))
-      _ = C.putLine(s"We found user($userFromDB)!!")
+      _ <- EitherT.liftF(C.putLine(s"We found user($userFromDB)!!"))
       successfullyAdded <- EitherT.liftF[F, DatabaseError, Boolean](addUser(user))
     } yield successfullyAdded).value
   }

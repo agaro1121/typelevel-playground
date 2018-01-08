@@ -16,3 +16,16 @@
   //**********This is the same as above
 //  def updateUser(user: User): EitherT[F, DatabaseError, F[Boolean]] =
 //    EitherT(DB.read(user.id)).map(user => DB.create(user.copy(name = "Bobby")))
+
+
+Blog Post
+- Start with simple Future API
+- Build the console DSL
+- Build the DB DSL
+- Build Interpreters
+- Build tagless repo
+- Build Free repo but explain InjectK/EitherK first
+- Main method and show results
+Source:
+https://www.youtube.com/watch?v=IhVdU4Xiz2U
+https://gitter.im/typelevel/cats?at=5a4ba46aba39a53f1ac980d6
