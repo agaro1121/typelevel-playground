@@ -378,6 +378,28 @@ class DBFreeAlgebraTI[F[_]](implicit I: InjectK[DBFreeAlgebraT, F]) {
       new ConsoleFreeAlgebraTI[F]
 ```
 
+I want to take a second to discuss InjectK. Just like FunctionK, InjectK works on Kinds.
+So what is this doing exactly? I'm no expert but I'll try to explain. Here goes...
+
+Let's look at the type signature:
+`abstract class InjectK[F[_], G[_]]`
+
+InjectK takes your algebra `F[_]` and it injects it into some other algebra `G[_]`
+So in our cases:
+```scala
+def create[T](t: T): Free[F, Boolean]
+      Free.inject[DBFreeAlgebraT, F](Create(t))
+```
+Just zooming in: `Free.inject[DBFreeAlgebraT, F]`
+We're injecting `DBFreeAlgebraT` into another algebra `F` that gets passed in.
+In our case, `F` will be the combined algebra: `DbAndConsoleAlgebra` which you see below.
+
+This [blog](https://underscore.io/blog/posts/2017/03/29/free-inject.html) summarizes it better than I do:
+  1. implicitly resolving an instance of Inject[DBFreeAlgebraT, F]
+  2. using it to inject `DBFreeAlgebraT` into `F[_]`, and finally
+  3. lifting `F[_]` into the more generalized Free monad
+
+
 Ok now that the boilerplate is out of the way,
 we can tell our code that we have many algebras where things are coming from.
 ```scala
@@ -388,6 +410,13 @@ object Combined {
     DBFreeAlgebraT.FutureInterpreter or ConsoleFreeAlgebraT.FutureInterpreter
 }
 ```
+EitherK works on Kinds like everything else with the 'K' suffix.
+EitherK simply says it's either one container(with stuff in it) or another.
+For us, this means our combined algebra is either `DBFreeAlgebraT` or `ConsoleFreeAlgebraT`.
+
+So something like:
+    SomeSpecificAlgebra(DB or Console) (inject)~> CombinedAlgebra(EitherK[_,_,_,...]) (liftF)~> Free(so everything is under 1 common umbrella)
+
 
 Now we can finally get to the point where the tagless final version of the code is at above:
 ```scala
