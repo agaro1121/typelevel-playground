@@ -45,6 +45,19 @@ libraryDependencies += "org.typelevel" %% "cats-core" % "1.0.1"
 libraryDependencies += "org.typelevel" %% "cats-free" % "1.0.1"
 ```
 
+Imports:
+```scala
+import cats.data.{EitherK, EitherT}
+import cats.free.Free
+import cats.{InjectK, Monad, ~>}
+import cats.implicits._
+
+import scala.collection.mutable
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
+```
+
 Some common models:
 ```scala 
 case class User(id: Long, name: String, age: Int)
@@ -211,6 +224,7 @@ class UserRepo[F[_]](DB: DatabaseAlgebra[F, User])(implicit M: Monad[F]) {
 ```scala
 class FreeUserRepo {
   val DB = DBFreeAlgebraT
+  import DBFreeAlgebraT.DBFreeAlgebra
 
   def getUser(id: Long): DBFreeAlgebra[Either[DatabaseError, User]] = DB.read(id) //this is a program
   def addUser(user: User): DBFreeAlgebra[Boolean] = DB.create(user) //this is a program
@@ -261,6 +275,36 @@ object DBFreeAlgebraRunner extends App {
     1 second))
 
 }
+```
+
+Output:
+```bash
+sbt:sample-blog-code> run
+
+ [1] DBFreeAlgebraRunner
+ [2] UserRepoRunner
+[info] Packaging /Users/anthony.garo/git/sample-blog-code/target/scala-2.12/sample-blog-code_2.12-0.1.jar ...
+[info] Done packaging.
+
+Enter number: 1
+
+[info] Running DBFreeAlgebraRunner
+Right(true)
+
+sbt:sample-blog-code> run
+[warn] Multiple main classes detected.  Run 'show discoveredMainClasses' to see the list
+
+Multiple main classes detected, select one to run:
+
+ [1] DBFreeAlgebraRunner
+ [2] UserRepoRunner
+[info] Packaging /Users/anthony.garo/git/sample-blog-code/target/scala-2.12/sample-blog-code_2.12-0.1.jar ...
+[info] Done packaging.
+
+Enter number: 2
+
+[info] Running UserRepoRunner
+Right(true)
 ```
 
 The main methods look almost identical.
@@ -427,23 +471,23 @@ So something like:
 Now we can finally get to the point where the tagless final version of the code is at above:
 ```scala
 class FreeUserRepo(implicit
-                   DB: DBFreeAlgebraTI[Combined.DbAndConsoleAlgebra],
-                   C: ConsoleFreeAlgebraTI[Combined.DbAndConsoleAlgebra]) {
+                   DB: DBFreeAlgebraT.DBFreeAlgebraTI[Combined.DbAndConsoleAlgebra],
+                   C: ConsoleFreeAlgebraT.ConsoleFreeAlgebraTI[Combined.DbAndConsoleAlgebra]) {
 
-  def getUser(id: Long): Free[DbAndConsoleAlgebra, Either[DatabaseError, User]] = DB.read(id)
-  def addUser(user: User): Free[DbAndConsoleAlgebra, Boolean] = DB.create(user)
+  def getUser(id: Long): Free[Combined.DbAndConsoleAlgebra, Either[DatabaseError, User]] = DB.read(id)
+  def addUser(user: User): Free[Combined.DbAndConsoleAlgebra, Boolean] = DB.create(user)
 
   /**
-   * EitherT.liftF has the following signature:
-   * def liftF[F[_], A, B](fb: F[B])
-   * 
-   * We need this type alias because of the fact it only accepts an `F[_]`
-   * and we're passing in `Free[DbAndConsoleAlgebra, A]`
-   * The type alias fixes 1 parameter to fit the mold of `F[_]`
-  */
-  type DbAndConsoleAlgebraContainer[A] = Free[DbAndConsoleAlgebra, A]
+    * EitherT.liftF has the following signature:
+    * def liftF[F[_], A, B](fb: F[B])
+    *
+    * We need this type alias because of the fact it only accepts an `F[_]`
+    * and we're passing in `Free[DbAndConsoleAlgebra, A]`
+    * The type alias fixes 1 parameter to fit the mold of `F[_]`
+    */
+  type DbAndConsoleAlgebraContainer[A] = Free[Combined.DbAndConsoleAlgebra, A]
 
-  def updateUser(user: User): Free[DbAndConsoleAlgebra, Either[DatabaseError, Boolean]] = (for {
+  def updateUser(user: User): Free[Combined.DbAndConsoleAlgebra, Either[DatabaseError, Boolean]] = (for {
     userFromDB <- EitherT(getUser(user.id))
     _ <- EitherT.liftF(C.putLine(s"We found user($userFromDB)!!"))
     successfullyAdded <- EitherT.liftF[DbAndConsoleAlgebraContainer, DatabaseError, Boolean](addUser(user))
@@ -483,6 +527,37 @@ object DBFreeAlgebraRunner extends App {
 }
 ```
 
+Output:
+```bash
+sbt:sample-blog-code> run
+[warn] Multiple main classes detected.  Run 'show discoveredMainClasses' to see the list
+
+Multiple main classes detected, select one to run:
+
+ [1] DBFreeAlgebraRunner
+ [2] UserRepoRunner
+
+Enter number: 1
+
+[info] Running DBFreeAlgebraRunner
+We found user(User(1,Bob,31))!!
+Right(true)
+
+sbt:sample-blog-code> run
+[warn] Multiple main classes detected.  Run 'show discoveredMainClasses' to see the list
+
+Multiple main classes detected, select one to run:
+
+ [1] DBFreeAlgebraRunner
+ [2] UserRepoRunner
+
+Enter number: 2
+
+[info] Running UserRepoRunner
+We found user(User(1,Bob,31))!!
+Right(true)
+```
+
 THAT'S IT!!!!
 WE DID IT!!!!
 
@@ -499,6 +574,29 @@ This was more proof to myself that you could use the techniques and attempt to m
 I also wanted to challenge myself and demonstrate that you could write code like this and still use error handling patterns such as Either.
 I feel like most examples, specifically around Free Monads, don't demonstrate how error handling can be used in your code.
 I hope this can provide a basic example of a somewhat real life scenario around error handling with these techniques.
+
+## What's the difference between the 2 approaches?
+The most basic answer I can think of is tagless final expresses an api via functions
+Free Monads express an api via ADTs
+
+## Which should you choose?
+Unfortunately this is where my lack of experience limits how I can answer this.
+The biggest difference I can see is Free Monads allow you to inspect the ADTs that are constructed along the way.
+This gives access you access to the entire call structure before it gets interpreted and the actions get executed.
+I believe this makes room for further optimizations of your programs.
+
+See below image:
+
+
+The tagless final pattern lends itself to less code to achieve the ultimate end result.
+
+## What's so cool about this stuff?
+The main reason I was curious about the idea of abstracting over your monads was something I heard a few years ago at a Scala talk.
+The speaker painted a scenario where the developer wanted to debug their code but it was asynchronous.
+Using a pattern like this, the developer could write an integration test, create an interpreter usign the `Id` monad, and point their test
+against a valid environment and watch the code execute synchronously and view the logs in an ordered fashion.
+
+I thought this was a fascinating concept and was something I could relate to.
 
 Ok that's enough from me.
 Until the next time !
