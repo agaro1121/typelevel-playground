@@ -2,7 +2,6 @@
 
 In this post, I will be using Cats as my library of choice for the Free Monad implementation.
 
-# TODO: Write preface && Warning
 I'm going to preface this by saying I'm not expert but I find this stuff interesting and wanted to write about it.
 
 This might be a lengthy post so I'll jump right in.
