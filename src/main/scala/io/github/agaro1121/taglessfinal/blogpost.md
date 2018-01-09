@@ -3,16 +3,16 @@
 In this post, I will be using Cats as my library of choice for the Free Monad implementation.
 
 # TODO: Write preface && Warning
-# TODO: InjectK explanation -> https://underscore.io/blog/posts/2017/03/29/free-inject.html
+I'm going to preface this by saying I'm not expert but I find this stuff interesting and wanted to write about it.
 
 This might be a lengthy post so I'll jump right in.
 I will start by creating a simple api based on futures.
-Then I will create 2 DSLs, interpreters for both, and then showing how to mix multiple algebras.
+Then I will create 2 DSLs, interpreters for both, and then show how to mix multiple algebras.
 I will compare the Free Monad approach and tagless final approach at each step.
 
 
 ### Free Monads
-A technique for encoding your intent as data types and then fold over those data types to build a final structure that will be interpreted into a known Monad of your choice.
+A technique for encoding your intent as data types and then folding over those data types to build a final structure that will be interpreted into a known Monad of your choice.
 The Free Monad itself isn't a Monad but enables you to borrow Monadic properties from other well known Monads.
 The [Cats](https://typelevel.org/cats/datatypes/freemonad.html) documentation says it better than I do:
 > Concretely, it is just a clever construction that allows us to build a very simple Monad from any functor
@@ -22,7 +22,7 @@ The [Cats](https://typelevel.org/cats/datatypes/freemonad.html) documentation sa
 The best way I can describe this technique is abstracting over your monad of choice.
 Just to be clear, this is a pattern of coding and can be achieved mostly using vanilla Scala.
 From my understanding, it's called "tagless" because you don't need runtime tags to express constraints on the types of your algebra.
-The term "tagless final" is kind of a pun on the long journey to get to a point where runtime tags were no longer required.
+Apparently the term "tagless final" is kind of a pun on the long journey to get to a point where runtime tags were no longer required.
 Here is a [better explanation](http://okmij.org/ftp/tagless-final/index.html):
 > The so-called `typed tagless final' ...for representing typed higher-order languages in a typed metalanguage[embedded DSL],
  along with type-preserving interpretation, compilation and partial evaluation. 
@@ -68,7 +68,7 @@ Ok so far so good...
 
 ## Step 1 - Create your DSLs
 
-## tagless final
+### Tagless Final
 ```scala
 trait DatabaseAlgebra[F[_], T] {
   def create(t: T): F[Boolean]
@@ -77,7 +77,7 @@ trait DatabaseAlgebra[F[_], T] {
 }
 ```
 This isn't so bad. We just took the future out and moved it up to the trait declaration in the form of `F[_]`
-Now instead of everything returning `Future[_]`, it returns `F[_]` and `F` can be whatever Monad you want it.
+Now instead of everything returning `Future[_]`, it returns `F[_]` and `F` can be whatever Monad you want.
 For example: `Future`, `IO`, `Id`, `Task`, etc... 
 
 ## Free
@@ -111,7 +111,7 @@ As you can see the Free implementation has a little more boilerplate.
 Free is encoding your algebra as ADTs so we need all the case classes.
 We also need the smart constructors because our case classes are too specific.
 Smart constructors create instances of our case classes but the return type is the more generalized super type: `DBFreeAlgebraT[T]`.
-These will help scala compiler with implicit lookups later.
+These will help the scala compiler with implicit lookups later.
 
 Now, as it stands none of this does anything useful.
 We need to create some interpreters to interpret our algebra into actions.
@@ -119,7 +119,7 @@ We need to create some interpreters to interpret our algebra into actions.
 # Step 2 - Create Interpreters
 - For this section we'll create interpreters to execute our actions using `Future`s
 
-## Tagless Final
+### Tagless Final
 ```scala
 object DatabaseAlgebra {
 
@@ -146,7 +146,7 @@ object DatabaseAlgebra {
 }
 ```
 This should be pretty straight-forward. We literally drop in `Future` for `F[_]` and fill in the implementation. 
-For those who use intellij, the IDE basically gives you the skeleton, you just fill it in.
+For those who use intellij, the IDE basically gives you a basic skeleton, you just fill it in.
 
 ## Free
 ```scala
@@ -190,7 +190,7 @@ The Free Monad is straight forward as well but a little more involved.
 We have to do a little casting along the way because of Scala's limited GADT support(`.asInstanceOf[Future[A]]`). <- I may be wrong on this but the compiler errors above say otherwise
 I'll explain `user.asInstanceOf[User]` a little later
 
-Now that our code can actually do stuff, let's write some repos to wrap our DB code:
+Now that our code can actually do stuff, let's write some repos to wrap our low-level DB code:
 ## Tagless Final
 ```scala
 class UserRepo[F[_]](DB: DatabaseAlgebra[F, User])(implicit M: Monad[F]) {
@@ -222,6 +222,12 @@ class FreeUserRepo {
   } yield successfullyAdded).value
 }
 ```
+
+The two repos look almost identical. 
+Notice that the tagless final version accepts its interpreter as an argument while the Free version does not. 
+The one big difference is the tagless final actually runs your code and returns your expected result.
+The Free version simply builds a recursive structure. Something like `Suspend(Suspend(Pure(...))`. Don't quote me on that.
+The structure gets broken down and traversed through a little later in the main method via the interpreter.
 
 The code calling all of this:
 
@@ -272,7 +278,7 @@ And that's it!!!!
 This alone can get you pretty far but at some point you're going to need to mix in another algebra into your program.
 
 I'll play out the scenario where you want to log stuff.
-This is very contrived but imagine it's something more sophisticated like sending an email or something.
+This is very contrived but imagine it's something more sophisticated like sending an email.
 
 Here's what an api/DSL for that would look like:
 
@@ -346,7 +352,7 @@ class UserRepo[F[_]](DB: DatabaseAlgebra[F, User],
 With Free, it's little more involved.
 Since our algebras are multiple ADTs, we need to tell our code that any given line of code in our program
 could be from our DB algebra OR from the console algebra.
-Essentially, its' either one of these. And this can be 2 or more algebras.
+Essentially, its' either one of these. This can be 2 or more algebras.
 But before we can even get to that point we need to add a little boilerplate.
 We have to make our distinct algebras have a common umbrella that they will fall under: `Free[_, _]`
 That's what we have smart constructors for :-)
@@ -365,7 +371,7 @@ class DBFreeAlgebraTI[F[_]](implicit I: InjectK[DBFreeAlgebraT, F]) {
       Free.inject[DBFreeAlgebraT, F](Delete(id))
   }
   
-  /** Step 3 - create an implicit constructor for your new class */
+  /** Step 3 - create an implicit instance of your new class */
   implicit def dBFreeAlgebraTI[F[_]](implicit I: InjectK[DBFreeAlgebraT, F]): DBFreeAlgebraTI[F] =
       new DBFreeAlgebraTI[F]
       
@@ -379,7 +385,7 @@ class DBFreeAlgebraTI[F[_]](implicit I: InjectK[DBFreeAlgebraT, F]) {
 ```
 
 I want to take a second to discuss InjectK. Just like FunctionK, InjectK works on Kinds.
-So what is this doing exactly? I'm no expert but I'll try to explain. Here goes...
+So what is this doing exactly? I'll try to explain. Here goes...
 
 Let's look at the type signature:
 `abstract class InjectK[F[_], G[_]]`
@@ -391,7 +397,7 @@ def create[T](t: T): Free[F, Boolean]
       Free.inject[DBFreeAlgebraT, F](Create(t))
 ```
 Just zooming in: `Free.inject[DBFreeAlgebraT, F]`
-We're injecting `DBFreeAlgebraT` into another algebra `F` that gets passed in.
+We're injecting `DBFreeAlgebraT` into another algebra `F`.
 In our case, `F` will be the combined algebra: `DbAndConsoleAlgebra` which you see below.
 
 This [blog](https://underscore.io/blog/posts/2017/03/29/free-inject.html) summarizes it better than I do:
@@ -401,7 +407,7 @@ This [blog](https://underscore.io/blog/posts/2017/03/29/free-inject.html) summar
 
 
 Ok now that the boilerplate is out of the way,
-we can tell our code that we have many algebras where things are coming from.
+we can tell our code that we have many algebras.
 ```scala
 object Combined {
   type DbAndConsoleAlgebra[T] = EitherK[DBFreeAlgebraT, ConsoleFreeAlgebraT, T]
@@ -427,6 +433,14 @@ class FreeUserRepo(implicit
   def getUser(id: Long): Free[DbAndConsoleAlgebra, Either[DatabaseError, User]] = DB.read(id)
   def addUser(user: User): Free[DbAndConsoleAlgebra, Boolean] = DB.create(user)
 
+  /**
+   * EitherT.liftF has the following signature:
+   * def liftF[F[_], A, B](fb: F[B])
+   * 
+   * We need this type alias because of the fact it only accepts an `F[_]`
+   * and we're passing in `Free[DbAndConsoleAlgebra, A]`
+   * The type alias fixes 1 parameter to fit the mold of `F[_]`
+  */
   type DbAndConsoleAlgebraContainer[A] = Free[DbAndConsoleAlgebra, A]
 
   def updateUser(user: User): Free[DbAndConsoleAlgebra, Either[DatabaseError, Boolean]] = (for {
@@ -443,7 +457,7 @@ The main methods are almost identical:
 /** Tagless Final */
 object UserRepoRunner extends App {
 
-  val repo = new UserRepo(DatabaseAlgebra.FutureInterpreter, ConsoleAlgebra.FutureInterpreter) // <- Console interpreter added in
+  val repo = new UserRepo(DatabaseAlgebra.FutureInterpreter, ConsoleAlgebra.FutureInterpreter) // <- Console interpreter simply added in
 
   println(Await.result(
     (for {
@@ -468,3 +482,23 @@ object DBFreeAlgebraRunner extends App {
 
 }
 ```
+
+THAT'S IT!!!!
+WE DID IT!!!!
+
+* I promised I'd mention `val castedUser = user.asInstanceOf[User]`
+So, I have to come clean and confess something. I tried to be slick and make my DBAlgebra generic on one of it's types here:
+`def create(t: T): Future[Boolean]`
+
+Typically a DSL will not be this general and will specify the `T` to be user like so:
+`def create(t: User): Future[Boolean]`
+
+I went for it anyway to see if I could make it work and it turned out ok.
+This was more proof to myself that you could use the techniques and attempt to maintain some level of generics.
+
+I also wanted to challenge myself and demonstrate that you could write code like this and still use error handling patterns such as Either.
+I feel like most examples, specifically around Free Monads, don't demonstrate how error handling can be used in your code.
+I hope this can provide a basic example of a somewhat real life scenario around error handling with these techniques.
+
+Ok that's enough from me.
+Until the next time !
