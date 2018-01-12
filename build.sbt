@@ -29,4 +29,5 @@ libraryDependencies += "org.slf4j" % "slf4j-simple" % "1.7.25"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.4" % "test"
 
 libraryDependencies += "io.monix" %% "monix" % "2.3.0"
+libraryDependencies += "io.monix" %% "monix-cats" % "2.3.0"
 libraryDependencies += "org.typelevel" %% "cats-effect" % "0.5"
