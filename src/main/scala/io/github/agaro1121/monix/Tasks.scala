@@ -113,3 +113,32 @@ object TasksWithFutures extends App {
   StdIn.readLine()
 
 }
+
+object TaskParallel extends App {
+
+  val locationTask: Task[String] = Task("location")
+  val phoneTask: Task[String] = Task.deferFuture(Future("phone"))
+  val addressTask = Task.eval("address")
+
+
+  val serial = for{
+    l <- locationTask
+    p <- phoneTask
+    a <- addressTask
+  } yield l + p + a + "gotcha!"
+
+  serial.foreach(println)
+
+  val agg = Task.zipMap3(locationTask, phoneTask, addressTask){
+    (l, p, a) => l + p + a + "gotcha!"
+  }
+
+  agg.foreach(println)
+
+  // maybe parallel?
+  val gatherUnordered = Task.gatherUnordered(Seq(locationTask, phoneTask, addressTask))
+
+  gatherUnordered.foreach(println)
+
+  StdIn.readLine()
+}
