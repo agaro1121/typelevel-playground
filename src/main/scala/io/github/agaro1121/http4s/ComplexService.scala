@@ -1,27 +1,30 @@
 package io.github.agaro1121.http4s
 
-import cats.effect.IO
-import org.http4s.util.StreamApp
+import cats.effect._
 import org.http4s._
-import org.http4s.dsl.io._
 import io.circe.syntax._
 import io.circe.generic.auto._
 import org.http4s.circe._
-import org.http4s.server.blaze.BlazeBuilder
+import org.http4s.server.Router
+import org.http4s.server.blaze._
+import org.http4s.implicits._
+import org.http4s.dsl.io._
+import cats.implicits._
 
 case class Tweet(id: Int, message: String)
 object Tweet {
   def getTweet(tweetId: Int): IO[Tweet] = IO.pure(Tweet(tweetId, "Sample"))
-  def getPopularTweets(): IO[Seq[Tweet]] = IO.pure(Seq(Tweet(5, "List Sample")))
+  def getPopularTweets(): IO[Seq[Tweet]] = IO.pure(Seq(Tweet(5, "List Sample"), Tweet(10, "Another!")))
 }
 
 
-object ComplexService extends StreamApp[IO] {
-  override def stream(args: List[String], requestShutdown: IO[Unit]) = {
+object ComplexService extends IOApp {
 
-    val tweetService  = HttpService[IO] {
+  override def run(args: List[String]): IO[ExitCode] = {
 
-      case GET -> Root / "tweets" / "popular" =>
+    val tweetService = HttpRoutes.of[IO] {
+
+      case GET -> Root / "tweets" =>
         Ok(Tweet.getPopularTweets().map(_.asJson))
 
       case GET -> Root / "tweets" / IntVar(tweetId) =>
@@ -29,13 +32,20 @@ object ComplexService extends StreamApp[IO] {
 
     }
 
-    val builder: BlazeBuilder[IO] =
-      BlazeBuilder[IO]
-        .bindHttp(9000, "localhost") //not necessary if you're just binding to 8080 <- default
-        .mountService(tweetService, "/")
+    val httpApp = Router(
+      "/" -> tweetService
+    ).orNotFound
+
+    val builder =
+      BlazeServerBuilder[IO]
+        .bindHttp(9000, "0.0.0.0") //not necessary if you're just binding to 8080 <- default
+        .withHttpApp(httpApp)
 
 
     builder.serve
-  }
+      .compile
+      .drain
+      .as(ExitCode.Success) //sugar for .map(_ => ExitCode.Success)
 
+  }
 }
